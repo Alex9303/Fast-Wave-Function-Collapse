@@ -1,18 +1,17 @@
-#include "json_utils.h"
-#include "wfc.h"
 #include <stdio.h>
 #include <stdlib.h>
+
 #include "cjson/cJSON.h"
+#include "json_utils.h"
+#include "wfc.h"
 
 cJSON* constraintsJSON = NULL;
 char key[20] = "";
 
 char* readFile(const char* filename) {
-    char fullFilename[256];
-    snprintf(fullFilename, 256, "%s.txt", filename);
-
-    FILE* file = fopen(fullFilename, "r");
-    if (!file) return NULL;
+    FILE* file = fopen(filename, "r");
+    if (!file)
+        return NULL;
 
     fseek(file, 0, SEEK_END);
     long length = ftell(file);
@@ -45,7 +44,9 @@ void loadJSON(const char* filename) {
 int countTiles() {
     int count = 0;
     cJSON* currentElement = NULL;
-    cJSON_ArrayForEach(currentElement, constraintsJSON) { count++; }
+    cJSON_ArrayForEach(currentElement, constraintsJSON) {
+        count++;
+    }
     return count;
 }
 
@@ -66,8 +67,11 @@ void getNeighbors(const char* tileName, const char* direction, int neighborsArra
 }
 
 void setupNeighbors() {
+    neighbors = (int*)malloc(tileCount * 4 * tileCount * sizeof(int));
+    neighborsSizes = (int*)malloc(tileCount * 4 * sizeof(int));
+
     for (int i = 0; i < tileCount; i++) {
-        int neighborsOffsetIndex = i * 4 * tileCount; 
+        int neighborsOffsetIndex = i * 4 * tileCount;
         char* currentTileName = (char*)malloc(20 * sizeof(char));
         sprintf(currentTileName, "tile%d", i);
         for (int j = 0; j < 4; j++) {

@@ -3,18 +3,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+
 #include "json_utils.h"
 #include "wfc.h"
 
 // Grid Stuff
-int* grid; // 3D grid (Y, X, Tiles)
-int* gridSizes; // Stores the size of the tiles for each grid cell
+int* grid;       // 3D grid (Y, X, Tiles)
+int* gridSizes;  // Stores the size of the tiles for each grid cell
 int tileCount = 0;
-const int gridWidth = 40;
+const int gridWidth = 10;
 const int gridHeight = gridWidth;
 const int tileSize = 16;
 
-int DIRS[4][2] = {{ 0, -1 }, { 0, 1 }, { -1, 0 }, { 1, 0 }};
+int DIRS[4][2] = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
 const char* DIRNAMES[] = {"up", "down", "left", "right"};
 
 // Neighbors Stuff
@@ -30,30 +31,30 @@ typedef struct Node {
 Node* headNode = NULL;
 Node* tailNode = NULL;
 
-int rSeed = 1745966488;
+int rSeed = 0;
+
+// Fast random number generator (Xorshift32)
+static unsigned int xor_state = 1;
+void init_xorshift(unsigned int seed) {
+    xor_state = seed ? seed : (unsigned int)time(NULL);
+}
+
+unsigned int xorshift32() {
+    unsigned int x = xor_state;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    xor_state = x;
+    return x;
+}
 
 int contains(int arr[], int size, int num) {
     for (int i = 0; i < size; i++) {
-      if (arr[i] == num) {
-        return 1;
-      }
+        if (arr[i] == num) {
+            return 1;
+        }
     }
     return 0;
-}
-
-char* arrayToString(int arr[], int size) {
-    int maxLen = size * 11 + 2;
-    char* result = (char*)malloc(maxLen);
-    char* ptr = result;
-    ptr += sprintf(ptr, "[");
-    for (int i = 0; i < size; i++) {
-        if (i != 0) {
-            ptr += sprintf(ptr, ", ");
-        }
-        ptr += sprintf(ptr, "%d", arr[i]);
-    }
-    sprintf(ptr, "]");
-    return result;
 }
 
 void enqueue(int value) {
@@ -93,6 +94,13 @@ int inGrid(int index, int dirIndex) {
 }
 
 void setupGrid() {
+    grid = (int*)malloc(gridWidth * gridHeight * tileCount * sizeof(int));
+    gridSizes = (int*)malloc(gridWidth * gridHeight * sizeof(int));
+
+    for (int i = 0; i < gridWidth * gridHeight; i++) {
+        gridSizes[i] = tileCount;
+    }
+
     for (int y = 0; y < gridHeight; y++) {
         for (int x = 0; x < gridWidth; x++) {
             int posIndex = (y * gridWidth + x);
@@ -136,10 +144,8 @@ int getLowestEntropyTile() {
             }
         }
     }
-    // printArray(lowestIndexes, lowestIndexesSize);
 
-    int randomIndex = rand() % lowestIndexesSize;
-
+    int randomIndex = xorshift32() % lowestIndexesSize;
     return lowestIndexes[randomIndex];
 }
 
@@ -148,7 +154,7 @@ void collapseAtTileRandom(int tileIndex) {
 
     // Pick a random superposition at tile and collapse
     int count = gridSizes[tileIndex];
-    int randomIndex = rand() % count;
+    int randomIndex = xorshift32() % count;
 
     int value = grid[currentGridIndex + randomIndex];
 
@@ -157,7 +163,6 @@ void collapseAtTileRandom(int tileIndex) {
 
     enqueue(tileIndex);
 }
-
 
 void updateQueue() {
     while (headNode != NULL) {
@@ -194,16 +199,12 @@ void updateQueue() {
                     int newChildSuperpositions[tileConstraintsSize + childTileSize];
                     int newChildSuperpositionsSize = 0;
 
-                    // printf("tileConstraints %s\n", arrayToString(tileConstraints, tileConstraintsSize));
-                    // printf("currentChildSuperpositions %s\n", arrayToString(childTile, childTileSize));
-
                     for (int i = 0; i < childTileSize; i++) {
                         if (contains(tileConstraints, tileConstraintsSize, childTile[i])) {
                             newChildSuperpositions[newChildSuperpositionsSize] = childTile[i];
                             newChildSuperpositionsSize++;
                         }
                     }
-                    // printf("newChildSuperpositions %s\n\n", arrayToString(newChildSuperpositions, newChildSuperpositionsSize));
 
                     // Update grid with new superpositions
                     for (int i = 0; i < newChildSuperpositionsSize; i++) {
@@ -212,7 +213,6 @@ void updateQueue() {
                     gridSizes[childTileIndex] = newChildSuperpositionsSize;
 
                     if (newChildSuperpositionsSize < childTileSize) {
-                        // printf("childTileIndex: %d\n\n", childTileIndex);
                         enqueue(childTileIndex);
                     }
 
@@ -254,32 +254,20 @@ void printGridPython() {
     printf("]\n");
 }
 
-
-int main() {
+int main(int argc, char* argv[]) {
     if (rSeed == 0) {
-        rSeed = time(NULL);
+        rSeed = (int)time(NULL);
     }
 
-    srand(rSeed);
+    init_xorshift(rSeed);
     printf("seed: %d\n", rSeed);
 
-    loadJSON("tileset");
+    loadJSON(argv[1]);
 
     tileCount = countTiles();
     printf("Tile Count: %d\n", tileCount);
 
-    grid = (int*)malloc(gridWidth * gridHeight * tileCount * sizeof(int));
-    gridSizes = (int*)malloc(gridWidth * gridHeight * sizeof(int));
-
-    for (int i = 0; i < gridWidth * gridHeight; i++) {
-        gridSizes[i] = tileCount;
-    }
-
-
     setupGrid();
-
-    neighbors = (int*)malloc(tileCount * 4 * tileCount * sizeof(int));
-    neighborsSizes = (int*)malloc(tileCount * 4 * sizeof(int));
     setupNeighbors();
 
     clock_t startTime = clock();
@@ -294,14 +282,12 @@ int main() {
     clock_t endTime = clock();
     double duration = (double)(endTime - startTime) / CLOCKS_PER_SEC;
 
-
     printf("done!\n");
     printf("duration: %f seconds\n\n", duration);
 
     printGridPython();
 
     free(grid);
-
 
     return 0;
 }
