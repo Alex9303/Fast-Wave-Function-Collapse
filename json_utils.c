@@ -69,10 +69,10 @@ void getNeighbors(const char* tileName, const char* direction, int neighborsArra
 void setupNeighbors() {
     neighbors = (int*)malloc(tileCount * 4 * tileCount * sizeof(int));
     neighborsSizes = (int*)malloc(tileCount * 4 * sizeof(int));
+    char currentTileName[20];
 
     for (int i = 0; i < tileCount; i++) {
         int neighborsOffsetIndex = i * 4 * tileCount;
-        char* currentTileName = (char*)malloc(20 * sizeof(char));
         sprintf(currentTileName, "tile%d", i);
         for (int j = 0; j < 4; j++) {
             int neighborsDirOffsetIndex = neighborsOffsetIndex + j * tileCount;
@@ -84,6 +84,7 @@ void setupNeighbors() {
                 neighbors[neighborsDirOffsetIndex + k] = currentNeighbors[k];
             }
         }
-        free(currentTileName);
     }
+
+    cJSON_Delete(constraintsJSON);
 }

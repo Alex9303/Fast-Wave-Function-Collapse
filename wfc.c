@@ -48,15 +48,6 @@ unsigned int xorshift32() {
     return x;
 }
 
-int contains(int arr[], int size, int num) {
-    for (int i = 0; i < size; i++) {
-        if (arr[i] == num) {
-            return 1;
-        }
-    }
-    return 0;
-}
-
 void enqueue(int value) {
     Node* newNode = (Node*)malloc(sizeof(Node));
     newNode->value = value;
@@ -165,12 +156,16 @@ void collapseAtTileRandom(int tileIndex) {
 }
 
 void updateQueue() {
+    // Use an O(1) lookup table instead of using an O(n) search
+    int validNeighborsLUT[tileCount];
+
     while (headNode != NULL) {
         int tileIndex = dequeue();
 
         for (int dirIndex = 0; dirIndex < 4; dirIndex++) {
-            int tileConstraints[tileCount];
-            int tileConstraintsSize = 0;
+            for(int i = 0; i < tileCount; ++i) {
+                validNeighborsLUT[i] = 0;
+            }
 
             // Aggregate constraints from all parent tiles
             for (int parentTileIndex = 0; parentTileIndex < gridSizes[tileIndex]; parentTileIndex++) {
@@ -180,29 +175,22 @@ void updateQueue() {
 
                 for (int i = 0; i < constraintsSize; i++) {
                     int currentConstraint = neighbors[neighborsDirOffsetIndex + i];
-                    if (!contains(tileConstraints, tileConstraintsSize, currentConstraint)) {
-                        tileConstraints[tileConstraintsSize] = currentConstraint;
-                        tileConstraintsSize++;
-                    }
+                    validNeighborsLUT[currentConstraint] = 1;
                 }
             }
 
             if (inGrid(tileIndex, dirIndex)) {
                 int childTileIndex = tileIndex + (DIRS[dirIndex][1] * gridWidth + DIRS[dirIndex][0]);
                 int childTileSize = gridSizes[childTileIndex];
-                if (childTileSize > 1) {
-                    int childTile[childTileSize];
-                    for (int i = 0; i < childTileSize; i++) {
-                        childTile[i] = grid[childTileIndex * tileCount + i];
-                    }
 
-                    int newChildSuperpositions[tileConstraintsSize + childTileSize];
+                if (childTileSize > 1) {
+                    int newChildSuperpositions[childTileSize];
                     int newChildSuperpositionsSize = 0;
 
                     for (int i = 0; i < childTileSize; i++) {
-                        if (contains(tileConstraints, tileConstraintsSize, childTile[i])) {
-                            newChildSuperpositions[newChildSuperpositionsSize] = childTile[i];
-                            newChildSuperpositionsSize++;
+                        int childSuperposition = grid[childTileIndex * tileCount + i];
+                        if (validNeighborsLUT[childSuperposition]) { 
+                            newChildSuperpositions[newChildSuperpositionsSize++] = childSuperposition;
                         }
                     }
 
@@ -255,6 +243,11 @@ void printGridPython() {
 }
 
 int main(int argc, char* argv[]) {
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <map json>\n", argv[0]);
+        return 1;
+    }
+
     if (rSeed == 0) {
         rSeed = (int)time(NULL);
     }
@@ -287,7 +280,12 @@ int main(int argc, char* argv[]) {
 
     printGridPython();
 
+    // Free allocated memory
     free(grid);
+    free(gridSizes);
+
+    free(neighbors);
+    free(neighborsSizes);
 
     return 0;
 }
