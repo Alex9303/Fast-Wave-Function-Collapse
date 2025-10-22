@@ -2,8 +2,13 @@
 CC = gcc
 CFLAGS = -O3 -march=native
 
+# Directories
+SRC_DIR = src
+OBJ_DIR = build
+
 # Source files
-SRCS = wfc.c json_utils.c cjson/cJSON.c
+SRCS = $(SRC_DIR)/wfc.c $(SRC_DIR)/json_utils.c $(SRC_DIR)/cjson/cJSON.c
+OBJS = $(SRCS:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
 
 # Output binary
 TARGET = wfc
@@ -12,12 +17,17 @@ TARGET = wfc
 all: $(TARGET)
 
 # Build target
-$(TARGET): $(SRCS)
-	$(CC) $(CFLAGS) $^ -o $@
+$(TARGET): $(OBJS)
+        $(CC) $(CFLAGS) $^ -o $@
+
+# Compile .c to .o
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
+        @mkdir -p $(dir $@)
+        $(CC) $(CFLAGS) -c $< -o $@
 
 # Clean target
 clean:
-	rm -f $(TARGET)
+        rm -rf $(OBJ_DIR) $(TARGET)
 
 # Phony targets
 .PHONY: all clean
